@@ -218,3 +218,11 @@ __marimo__/
 .streamlit/secrets.toml
 
 env.json
+
+.claude
+
+items_cache.json
+
+watchlist.json
+
+icons/
