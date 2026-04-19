@@ -226,3 +226,4 @@ items_cache.json
 watchlist.json
 
 icons/
+secrets.py

@@ -5,6 +5,9 @@ from PyQt6.QtWidgets import (
 )
 
 from constants import PRODUCTION_API, hline
+from credentials import CLIENT_ID as _BUILTIN_ID, CLIENT_SECRET as _BUILTIN_SECRET
+
+_BUILTIN = bool(_BUILTIN_ID and _BUILTIN_SECRET)
 
 
 class SettingsTab(QWidget):
@@ -14,17 +17,29 @@ class SettingsTab(QWidget):
         lay = QVBoxLayout(self)
         lay.setSpacing(6)
 
-        self.txt_id = QLineEdit(config["CLIENT_ID"])
-        self.txt_id.setPlaceholderText("Client ID")
+        if _BUILTIN:
+            lbl = QLabel("API-ключи встроены в приложение")
+            lbl.setStyleSheet("color: #5cb85c; font-weight: bold; padding: 4px 0;")
+            lay.addWidget(lbl)
+            self.txt_id     = None
+            self.txt_secret = None
+        else:
+            self.txt_id = QLineEdit(config.get("CLIENT_ID", ""))
+            self.txt_id.setPlaceholderText("Client ID")
 
-        self.txt_secret = QLineEdit(config["CLIENT_SECRET"])
-        self.txt_secret.setPlaceholderText("Client Secret")
-        self.txt_secret.setEchoMode(QLineEdit.EchoMode.Password)
+            self.txt_secret = QLineEdit(config.get("CLIENT_SECRET", ""))
+            self.txt_secret.setPlaceholderText("Client Secret")
+            self.txt_secret.setEchoMode(QLineEdit.EchoMode.Password)
+
+            lay.addWidget(QLabel("Client ID:"))
+            lay.addWidget(self.txt_id)
+            lay.addWidget(QLabel("Client Secret:"))
+            lay.addWidget(self.txt_secret)
 
         self.cmb_region = QComboBox()
         for r in ["RU", "EU", "NA", "SEA", "NEA"]:
             self.cmb_region.addItem(r)
-        self.cmb_region.setCurrentText(config["CLIENT_REGION"])
+        self.cmb_region.setCurrentText(config.get("CLIENT_REGION", "RU"))
 
         self.spn_interval = QSpinBox()
         self.spn_interval.setRange(5, 3600)
@@ -40,13 +55,9 @@ class SettingsTab(QWidget):
             "Алерт когда цена выкупа < X × медианная цена (0.7 = 70%)"
         )
 
-        lay.addWidget(QLabel("Client ID:"))
-        lay.addWidget(self.txt_id)
-        lay.addWidget(QLabel("Client Secret:"))
-        lay.addWidget(self.txt_secret)
+        lay.addWidget(hline())
         lay.addWidget(QLabel("Регион:"))
         lay.addWidget(self.cmb_region)
-        lay.addWidget(hline())
         lay.addWidget(QLabel("Интервал опроса аукциона:"))
         lay.addWidget(self.spn_interval)
         lay.addWidget(QLabel(
@@ -64,18 +75,24 @@ class SettingsTab(QWidget):
         lay.addStretch()
 
     def get_config(self) -> dict:
+        if _BUILTIN:
+            cid, sec = _BUILTIN_ID, _BUILTIN_SECRET
+        else:
+            cid = self.txt_id.text().strip()
+            sec = self.txt_secret.text().strip()
         return {
-            "CLIENT_ID":     self.txt_id.text().strip(),
-            "CLIENT_SECRET": self.txt_secret.text().strip(),
+            "CLIENT_ID":     cid,
+            "CLIENT_SECRET": sec,
             "CLIENT_REGION": self.cmb_region.currentText(),
             "INTERVAL":      self.spn_interval.value(),
             "THRESHOLD":     self.spn_threshold.value(),
         }
 
     def get_headers(self) -> dict:
+        cfg = self.get_config()
         return {
-            "Client-Id":     self.txt_id.text().strip(),
-            "Client-Secret": self.txt_secret.text().strip(),
+            "Client-Id":     cfg["CLIENT_ID"],
+            "Client-Secret": cfg["CLIENT_SECRET"],
         }
 
     def _save(self):
