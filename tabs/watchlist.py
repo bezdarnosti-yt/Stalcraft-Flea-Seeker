@@ -25,13 +25,13 @@ class WatchlistTab(QWidget):
         lay.setSpacing(8)
         lay.setContentsMargins(10, 10, 10, 10)
 
-        self.tbl = QTableWidget(0, 6)
+        self.tbl = QTableWidget(0, 8)
         self.tbl.setHorizontalHeaderLabels(
-            ["Название", "Ранг", "Заточка", "Рынок", "Дёшево", "Скидка"]
+            ["Название", "Ранг", "Заточка", "Рынок", "Дёшево", "Скидка", "За день", "За неделю"]
         )
         hdr = self.tbl.horizontalHeader()
         hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        for col in range(1, 6):
+        for col in range(1, 8):
             hdr.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
         self.tbl.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.tbl.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -84,6 +84,17 @@ class WatchlistTab(QWidget):
     def set_status(self, text: str):
         self.lbl_status.setText(text)
 
+    def update_sales(self, item_id: str, upgrade: int,
+                     sold_day: int, sold_week: int):
+        for row, item in enumerate(self.watchlist):
+            if item["id"] != item_id or item.get("upgrade", UPGRADE_ANY) != upgrade:
+                continue
+            for col, val in ((6, sold_day), (7, sold_week)):
+                cell = QTableWidgetItem(str(val) if val > 0 else "—")
+                cell.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.tbl.setItem(row, col, cell)
+            break
+
     def update_prices(self, item_id: str, upgrade: int,
                       cheapest: int, market: int, threshold: float):
         for row, item in enumerate(self.watchlist):
@@ -133,9 +144,8 @@ class WatchlistTab(QWidget):
         self.tbl.setItem(row, 0, cell_name)
         self.tbl.setItem(row, 1, cell_qual)
         self.tbl.setItem(row, 2, cell_upg)
-        self.tbl.setItem(row, 3, QTableWidgetItem("—"))
-        self.tbl.setItem(row, 4, QTableWidgetItem("—"))
-        self.tbl.setItem(row, 5, QTableWidgetItem("—"))
+        for col in range(3, 8):
+            self.tbl.setItem(row, col, QTableWidgetItem("—"))
 
     def _set_price_cells(self, row: int, cheapest: int,
                           market: int, threshold: float):

@@ -1,6 +1,7 @@
 import logging
 import statistics
 import threading
+import time
 from datetime import datetime
 
 import requests
@@ -44,8 +45,9 @@ class IconLoader(QThread):
 
 
 class AuctionWorker(QThread):
-    prices_updated = pyqtSignal(str, int, int, int)   # item_id, upgrade, cheapest, market
-    deal_found     = pyqtSignal(str, str, int, int, int)  # name, color, level, buyout, market
+    prices_updated = pyqtSignal(str, int, int, int)        # item_id, upgrade, cheapest, market
+    sales_updated  = pyqtSignal(str, int, int, int)        # item_id, upgrade, sold_day, sold_week
+    deal_found     = pyqtSignal(str, str, int, int, int)   # name, color, level, buyout, market
     status_changed = pyqtSignal(str)
 
     def __init__(self, api_url, headers, region, watchlist, threshold, interval):
@@ -141,6 +143,32 @@ class AuctionWorker(QThread):
                   if p["price"] > 0
                   and get_upgrade_level(p.get("additional") or {}) == want_upgrade]
         )
+
+        now = time.time()
+        day_ago  = now - 86400
+        week_ago = now - 86400 * 7
+
+        def _ts(p) -> float:
+            t = p.get("time", 0)
+            if isinstance(t, str):
+                try:
+                    from datetime import timezone
+                    return datetime.fromisoformat(
+                        t.replace("Z", "+00:00")
+                    ).astimezone(timezone.utc).timestamp()
+                except Exception:
+                    return 0.0
+            return float(t)
+
+        def _matches(p):
+            return (want_upgrade == UPGRADE_ANY
+                    or get_upgrade_level(p.get("additional") or {}) == want_upgrade)
+
+        sold_day  = sum(p.get("amount", 1) for p in history
+                        if _matches(p) and _ts(p) >= day_ago)
+        sold_week = sum(p.get("amount", 1) for p in history
+                        if _matches(p) and _ts(p) >= week_ago)
+        self.sales_updated.emit(item_id, want_upgrade, sold_day, sold_week)
 
         if len(prices) < 3:
             self.prices_updated.emit(item_id, want_upgrade, buyout, 0)
