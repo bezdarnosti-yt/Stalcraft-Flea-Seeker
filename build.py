@@ -3,8 +3,9 @@
 
 Использование:
   1. Создай secrets.py (скопируй из secrets.example.py, впиши реальные ключи)
-  2. Запусти: python build.py
-  3. Готовый exe будет в dist/calcraft-bot.exe
+  2. Обнови __version__ в version.py если нужно
+  3. Запусти: python build.py  (из venv с установленным PyInstaller)
+  4. Готовый exe будет в dist/calcraft-bot.exe
 
 secrets.py никогда не коммитится в git.
 """
@@ -28,10 +29,17 @@ def _encode(text: str, key: bytes) -> bytes:
 
 
 def main():
-    if not Path("secrets.py").exists():
-        print("Ошибка: secrets.py не найден.")
-        print("Скопируй secrets.example.py → secrets.py и впиши реальные ключи.")
-        sys.exit(1)
+    for required in ("secrets.py", "version.py"):
+        if not Path(required).exists():
+            print(f"Ошибка: {required} не найден.")
+            if required == "secrets.py":
+                print("Скопируй secrets.example.py → secrets.py и впиши реальные ключи.")
+            sys.exit(1)
+
+    ns_ver: dict = {}
+    exec(Path("version.py").read_text("utf-8"), ns_ver)  # noqa: S102
+    version = ns_ver.get("__version__", "?")
+    print(f"Версия: {version}")
 
     ns: dict = {}
     exec(Path("secrets.py").read_text("utf-8"), ns)  # noqa: S102
@@ -82,7 +90,7 @@ def main():
     Path("credentials.py").write_text(_PLACEHOLDER, encoding="utf-8")
 
     if result.returncode == 0:
-        print("\nГотово! Exe в dist/calcraft-bot.exe")
+        print(f"\nГотово! dist/calcraft-bot.exe (v{version})")
     else:
         print("\nPyInstaller завершился с ошибкой.")
 

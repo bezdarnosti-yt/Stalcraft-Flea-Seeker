@@ -103,6 +103,13 @@ QPushButton#btn_theme {
 }
 QPushButton#btn_theme:hover { background-color: #2d2e42; color: #c8cde8; border-color: #6272e8; }
 
+QLabel#update_banner {
+    background-color: #2a3a1e; color: #8ecf5a;
+    border-bottom: 1px solid #3d5a28;
+    padding: 6px 12px; font-size: 13px;
+}
+QLabel#update_banner:hover { background-color: #344a26; }
+
 QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
     background-color: #2d2e42; color: #c8cde8;
     border: 1px solid #3a3b52; border-radius: 5px;
@@ -215,6 +222,13 @@ QPushButton#btn_theme {
     padding: 3px 10px; min-height: 22px; font-size: 12px;
 }
 QPushButton#btn_theme:hover { background-color: #eef0fa; color: #1e1f2e; border-color: #4a5cd0; }
+
+QLabel#update_banner {
+    background-color: #eefae8; color: #2d6e1a;
+    border-bottom: 1px solid #b0d898;
+    padding: 6px 12px; font-size: 13px;
+}
+QLabel#update_banner:hover { background-color: #e2f5d8; }
 
 QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
     background-color: #ffffff; color: #1e1f2e;

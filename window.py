@@ -1,15 +1,18 @@
 import json
+import webbrowser
 from pathlib import Path
 from typing import Optional
 
-from PyQt6.QtCore import QEvent, QTimer
+from PyQt6.QtCore import QEvent, Qt, QTimer
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QMessageBox, QPushButton, QTabWidget,
+    QApplication, QLabel, QMainWindow, QMessageBox, QPushButton,
+    QTabWidget, QVBoxLayout, QWidget,
 )
 
 import theme
 from constants import PRODUCTION_API, UPGRADE_ANY
 from database import ItemDatabase
+from updater import UpdateChecker
 from workers import AuctionWorker
 from tabs.settings  import SettingsTab
 from tabs.search    import SearchTab
@@ -40,7 +43,22 @@ class MainWindow(QMainWindow):
         tabs.addTab(self.tab_watchlist, "Список слежки")
         self._tabs_widget = tabs
 
-        self.setCentralWidget(tabs)
+        self._update_banner = QLabel()
+        self._update_banner.setObjectName("update_banner")
+        self._update_banner.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._update_banner.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._update_banner.hide()
+        self._update_url = ""
+        self._update_banner.mousePressEvent = lambda _: webbrowser.open(self._update_url)
+
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self._update_banner)
+        layout.addWidget(tabs)
+
+        self.setCentralWidget(container)
 
         self._btn_theme = QPushButton(parent=tabs)
         self._btn_theme.setObjectName("btn_theme")
@@ -54,10 +72,23 @@ class MainWindow(QMainWindow):
 
         self._apply_theme(self._config.get("THEME", theme.DARK))
         QTimer.singleShot(200, self._init_db)
+        QTimer.singleShot(1500, self._start_update_check)
 
     def closeEvent(self, event):
         self._stop_auction()
         event.accept()
+
+    def _start_update_check(self):
+        self._update_checker = UpdateChecker()
+        self._update_checker.update_available.connect(self._on_update_available)
+        self._update_checker.start()
+
+    def _on_update_available(self, tag: str, url: str):
+        self._update_url = url
+        self._update_banner.setText(
+            f"Доступна новая версия {tag} — нажмите здесь, чтобы скачать"
+        )
+        self._update_banner.show()
 
     def eventFilter(self, obj, event):
         if obj is self._tabs_widget and event.type() in (
