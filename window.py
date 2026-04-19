@@ -4,7 +4,8 @@ from typing import Optional
 
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QMessageBox, QPushButton, QTabWidget,
+    QApplication, QHBoxLayout, QMainWindow, QMessageBox,
+    QPushButton, QTabWidget, QVBoxLayout, QWidget,
 )
 
 import theme
@@ -42,14 +43,27 @@ class MainWindow(QMainWindow):
         tabs.addTab(self.tab_search,    "Поиск предметов")
         tabs.addTab(self.tab_watchlist, "Список слежки")
         tabs.addTab(self.tab_emission,  "Выброс")
-        self.setCentralWidget(tabs)
         self._tabs_widget = tabs
 
         self._btn_theme = QPushButton()
         self._btn_theme.setObjectName("btn_theme")
-        self._btn_theme.setFixedWidth(115)
+        self._btn_theme.setFixedWidth(120)
         self._btn_theme.clicked.connect(self._toggle_theme)
-        tabs.setCornerWidget(self._btn_theme)
+
+        header = QWidget()
+        header.setObjectName("header_bar")
+        header_lay = QHBoxLayout(header)
+        header_lay.setContentsMargins(8, 4, 8, 4)
+        header_lay.addStretch()
+        header_lay.addWidget(self._btn_theme)
+
+        root = QWidget()
+        root_lay = QVBoxLayout(root)
+        root_lay.setContentsMargins(0, 0, 0, 0)
+        root_lay.setSpacing(0)
+        root_lay.addWidget(header)
+        root_lay.addWidget(tabs)
+        self.setCentralWidget(root)
 
         self.tab_search.add_requested.connect(self._on_add_to_watchlist)
         self.tab_watchlist.start_requested.connect(self._start_auction)

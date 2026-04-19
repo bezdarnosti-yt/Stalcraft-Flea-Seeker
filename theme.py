@@ -55,16 +55,19 @@ def stylesheet(name: str) -> str:
 
 
 _BASE = (
-    'QWidget { font-family: "Segoe UI", Arial, sans-serif; font-size: 13px; }'
+    'QWidget { font-family: "Segoe UI Variable Display", "Segoe UI", "Calibri", Arial, sans-serif; font-size: 13px; }'
 )
 
 _DARK = _BASE + """
 QWidget     { background-color: #1e1f2e; color: #c8cde8; }
 QMainWindow { background-color: #1e1f2e; }
 
+QWidget#header_bar {
+    background-color: #1e1f2e;
+    border-bottom: 1px solid #3a3b52;
+}
 QTabWidget::pane {
     border: 1px solid #3a3b52;
-    border-top: none;
     background-color: #252636;
 }
 QTabBar::tab {
@@ -74,9 +77,10 @@ QTabBar::tab {
     border: 1px solid #3a3b52;
     border-bottom: none;
     margin-right: 2px;
+    margin-bottom: -1px;
     border-radius: 6px 6px 0 0;
 }
-QTabBar::tab:selected       { background-color: #252636; color: #c8cde8; border-bottom-color: #252636; }
+QTabBar::tab:selected        { background-color: #252636; color: #c8cde8; border-bottom-color: #252636; }
 QTabBar::tab:!selected:hover { background-color: #252636; color: #a0a8d0; }
 
 QPushButton {
@@ -181,15 +185,19 @@ _LIGHT = _BASE + """
 QWidget     { background-color: #f0f2f8; color: #1e1f2e; }
 QMainWindow { background-color: #f0f2f8; }
 
+QWidget#header_bar {
+    background-color: #f0f2f8;
+    border-bottom: 1px solid #d0d3e8;
+}
 QTabWidget::pane {
     border: 1px solid #d0d3e8;
-    border-top: none;
     background-color: #ffffff;
 }
 QTabBar::tab {
     background-color: #e8eaf5; color: #6870a0;
     padding: 8px 20px; border: 1px solid #d0d3e8;
     border-bottom: none; margin-right: 2px;
+    margin-bottom: -1px;
     border-radius: 6px 6px 0 0;
 }
 QTabBar::tab:selected        { background-color: #ffffff; color: #1e1f2e; border-bottom-color: #ffffff; }
