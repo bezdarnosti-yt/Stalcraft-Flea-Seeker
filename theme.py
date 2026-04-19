@@ -62,10 +62,6 @@ _DARK = _BASE + """
 QWidget     { background-color: #1e1f2e; color: #c8cde8; }
 QMainWindow { background-color: #1e1f2e; }
 
-QWidget#header_bar {
-    background-color: #1e1f2e;
-    border-bottom: 1px solid #3a3b52;
-}
 QTabWidget::pane {
     border: 1px solid #3a3b52;
     background-color: #252636;
@@ -77,7 +73,7 @@ QTabBar::tab {
     border: 1px solid #3a3b52;
     border-bottom: none;
     margin-right: 2px;
-    margin-bottom: -1px;
+    margin-bottom: -2px;
     border-radius: 6px 6px 0 0;
 }
 QTabBar::tab:selected        { background-color: #252636; color: #c8cde8; border-bottom-color: #252636; }
@@ -185,10 +181,6 @@ _LIGHT = _BASE + """
 QWidget     { background-color: #f0f2f8; color: #1e1f2e; }
 QMainWindow { background-color: #f0f2f8; }
 
-QWidget#header_bar {
-    background-color: #f0f2f8;
-    border-bottom: 1px solid #d0d3e8;
-}
 QTabWidget::pane {
     border: 1px solid #d0d3e8;
     background-color: #ffffff;
@@ -197,7 +189,7 @@ QTabBar::tab {
     background-color: #e8eaf5; color: #6870a0;
     padding: 8px 20px; border: 1px solid #d0d3e8;
     border-bottom: none; margin-right: 2px;
-    margin-bottom: -1px;
+    margin-bottom: -2px;
     border-radius: 6px 6px 0 0;
 }
 QTabBar::tab:selected        { background-color: #ffffff; color: #1e1f2e; border-bottom-color: #ffffff; }
