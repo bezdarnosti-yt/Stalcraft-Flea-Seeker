@@ -27,12 +27,13 @@ class WatchlistTab(QWidget):
 
         self.tbl = QTableWidget(0, 8)
         self.tbl.setHorizontalHeaderLabels(
-            ["Название", "Ранг", "Заточка", "Рынок", "Дёшево", "Скидка", "За день", "За неделю"]
+            ["Название", "Ранг", "Заточка", "Рынок", "Дёшево", "За день", "За неделю", "Скидка"]
         )
         hdr = self.tbl.horizontalHeader()
         hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         for col in range(1, 8):
             hdr.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
+        hdr.setSectionsMovable(True)
         self.tbl.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.tbl.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tbl.setAlternatingRowColors(True)
@@ -89,7 +90,7 @@ class WatchlistTab(QWidget):
         for row, item in enumerate(self.watchlist):
             if item["id"] != item_id or item.get("upgrade", UPGRADE_ANY) != upgrade:
                 continue
-            for col, val in ((6, sold_day), (7, sold_week)):
+            for col, val in ((5, sold_day), (6, sold_week)):
                 cell = QTableWidgetItem(str(val) if val > 0 else "—")
                 cell.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 self.tbl.setItem(row, col, cell)
@@ -166,9 +167,9 @@ class WatchlistTab(QWidget):
             if discount <= threshold:
                 cell.setForeground(QColor("#FF4444"))
                 cell.setFont(bold_font())
-            self.tbl.setItem(row, 5, cell)
+            self.tbl.setItem(row, 7, cell)
         else:
-            self.tbl.setItem(row, 5, QTableWidgetItem("мало данных"))
+            self.tbl.setItem(row, 7, QTableWidgetItem("мало данных"))
 
     def _on_remove(self):
         row = self.tbl.currentRow()

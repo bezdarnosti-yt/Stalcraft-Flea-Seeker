@@ -83,6 +83,15 @@ class MainWindow(QMainWindow):
         self._update_checker = UpdateChecker()
         self._update_checker.update_available.connect(self._on_update_available)
         self._update_checker.start()
+        self._update_timer = QTimer(self)
+        self._update_timer.timeout.connect(self._run_update_check)
+        self._update_timer.start(5 * 60 * 1000)
+
+    def _run_update_check(self):
+        if not self._update_banner.isVisible():
+            self._update_checker = UpdateChecker()
+            self._update_checker.update_available.connect(self._on_update_available)
+            self._update_checker.start()
 
     def _on_update_available(self, tag: str, url: str):
         self._update_url = url
