@@ -71,7 +71,7 @@ def main():
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--onefile", "--windowed",
-        "--name", "calcraft-bot",
+        "--name", f"calcraft-bot-{version}",
     ]
 
     icon = Path("icon.ico")
@@ -90,7 +90,7 @@ def main():
     Path("credentials.py").write_text(_PLACEHOLDER, encoding="utf-8")
 
     if result.returncode == 0:
-        print(f"\nГотово! dist/calcraft-bot.exe (v{version})")
+        print(f"\nГотово! dist/calcraft-bot-{version}.exe")
     else:
         print("\nPyInstaller завершился с ошибкой.")
 

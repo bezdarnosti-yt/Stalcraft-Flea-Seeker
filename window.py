@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (
 
 import theme
 from constants import PRODUCTION_API, UPGRADE_ANY
+from version import __version__
 from database import ItemDatabase
 from updater import UpdateChecker
 from workers import AuctionWorker
@@ -22,7 +23,7 @@ from tabs.watchlist import WatchlistTab
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Stalcraft Flea Seeker")
+        self.setWindowTitle(f"Stalcraft Flea Seeker v{__version__}")
         self.setMinimumSize(860, 560)
 
         self._env_path       = Path("env.json")

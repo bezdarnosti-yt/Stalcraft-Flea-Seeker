@@ -6,6 +6,8 @@ from PyQt6.QtWidgets import (
 
 from constants import PRODUCTION_API, hline
 from credentials import CLIENT_ID as _BUILTIN_ID, CLIENT_SECRET as _BUILTIN_SECRET
+from updater import GITHUB_OWNER, GITHUB_REPO, _parse_ver
+from version import __version__
 
 _BUILTIN = bool(_BUILTIN_ID and _BUILTIN_SECRET)
 
@@ -70,8 +72,12 @@ class SettingsTab(QWidget):
         btn_check.clicked.connect(self._check_api)
         btn_save = QPushButton("Сохранить настройки")
         btn_save.clicked.connect(self._save)
+        btn_update = QPushButton("Проверить обновления")
+        btn_update.clicked.connect(self._check_updates)
         lay.addWidget(btn_check)
         lay.addWidget(btn_save)
+        lay.addWidget(hline())
+        lay.addWidget(btn_update)
         lay.addStretch()
 
     def get_config(self) -> dict:
@@ -102,6 +108,32 @@ class SettingsTab(QWidget):
         with open(Path("env.json"), "w", encoding="utf-8") as f:
             json.dump(self._config, f, indent=4)
         QMessageBox.information(self, "Настройки", "Сохранено!")
+
+    def _check_updates(self):
+        import webbrowser
+        try:
+            r = requests.get(
+                f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest",
+                headers={"Accept": "application/vnd.github+json"},
+                timeout=10,
+            )
+            if r.status_code != 200:
+                QMessageBox.warning(self, "Обновления", f"Не удалось проверить обновления (HTTP {r.status_code})")
+                return
+            data = r.json()
+            tag = data.get("tag_name", "")
+            url = data.get("html_url", f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}/releases")
+            if tag and _parse_ver(tag) > _parse_ver(__version__):
+                btn = QMessageBox.question(
+                    self, "Доступно обновление",
+                    f"Текущая версия: v{__version__}\nНовая версия: {tag}\n\nОткрыть страницу загрузки?",
+                )
+                if btn == QMessageBox.StandardButton.Yes:
+                    webbrowser.open(url)
+            else:
+                QMessageBox.information(self, "Обновления", f"У вас актуальная версия (v{__version__})")
+        except Exception as e:
+            QMessageBox.critical(self, "Обновления", f"Ошибка соединения:\n{e}")
 
     def _check_api(self):
         cfg = self.get_config()
