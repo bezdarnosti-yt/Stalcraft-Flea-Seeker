@@ -54,9 +54,7 @@ def stylesheet(name: str) -> str:
     return _LIGHT if name == LIGHT else _DARK
 
 
-_BASE = (
-    'QWidget { font-family: "Segoe UI Variable Display", "Segoe UI", "Calibri", Arial, sans-serif; font-size: 13px; }'
-)
+_BASE = "QWidget { font-size: 13px; }"
 
 _DARK = _BASE + """
 QWidget     { background-color: #1e1f2e; color: #c8cde8; }

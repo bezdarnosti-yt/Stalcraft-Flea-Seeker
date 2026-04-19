@@ -10,11 +10,10 @@ from PyQt6.QtWidgets import (
 import theme
 from constants import PRODUCTION_API, UPGRADE_ANY
 from database import ItemDatabase
-from workers import AuctionWorker, EmissionWorker
+from workers import AuctionWorker
 from tabs.settings  import SettingsTab
 from tabs.search    import SearchTab
 from tabs.watchlist import WatchlistTab
-from tabs.emission  import EmissionTab
 
 
 class MainWindow(QMainWindow):
@@ -29,19 +28,16 @@ class MainWindow(QMainWindow):
         self._watchlist      = self._load_watchlist()
         self._db             = ItemDatabase()
 
-        self._auction_worker:  Optional[AuctionWorker]  = None
-        self._emission_worker: Optional[EmissionWorker] = None
+        self._auction_worker: Optional[AuctionWorker] = None
 
         self.tab_settings  = SettingsTab(self._config)
         self.tab_search    = SearchTab(self._db)
         self.tab_watchlist = WatchlistTab(self._watchlist)
-        self.tab_emission  = EmissionTab()
 
         tabs = QTabWidget()
         tabs.addTab(self.tab_settings,  "Настройки")
         tabs.addTab(self.tab_search,    "Поиск предметов")
         tabs.addTab(self.tab_watchlist, "Список слежки")
-        tabs.addTab(self.tab_emission,  "Выброс")
         self._tabs_widget = tabs
 
         self.setCentralWidget(tabs)
@@ -55,14 +51,12 @@ class MainWindow(QMainWindow):
         self.tab_watchlist.start_requested.connect(self._start_auction)
         self.tab_watchlist.stop_requested.connect(self._stop_auction)
         self.tab_watchlist.remove_requested.connect(self._remove_from_watchlist)
-        self.tab_emission.monitoring_toggled.connect(self._toggle_emission)
 
         self._apply_theme(self._config.get("THEME", theme.DARK))
         QTimer.singleShot(200, self._init_db)
 
     def closeEvent(self, event):
         self._stop_auction()
-        self._stop_emission()
         event.accept()
 
     def eventFilter(self, obj, event):
@@ -89,14 +83,12 @@ class MainWindow(QMainWindow):
     def _apply_theme(self, name: str):
         theme.set_theme(name)
         QApplication.instance().setStyleSheet(theme.stylesheet(name))
-        if name == theme.LIGHT:
-            self._btn_theme.setText("Тёмная тема")
-        else:
-            self._btn_theme.setText("Светлая тема")
+        self._btn_theme.setText(
+            "Светлая тема" if name == theme.DARK else "Тёмная тема"
+        )
         self._config["THEME"] = name
         self.tab_watchlist.refresh()
         self.tab_search.repaint_quality()
-        self.tab_emission.refresh_theme()
 
     def _toggle_theme(self):
         name = theme.LIGHT if theme.current() == theme.DARK else theme.DARK
@@ -180,53 +172,11 @@ class MainWindow(QMainWindow):
         self.activateWindow()
         self.raise_()
 
-    def _toggle_emission(self, enabled: bool):
-        if enabled:
-            cfg = self.tab_settings.get_config()
-            if not cfg["CLIENT_ID"] or not cfg["CLIENT_SECRET"]:
-                QMessageBox.warning(self, "Ошибка",
-                    "Заполните Client ID и Client Secret в настройках!")
-                self.tab_emission.chk_monitor.setChecked(False)
-                return
-            self._emission_worker = EmissionWorker(
-                api_url  = PRODUCTION_API,
-                headers  = self.tab_settings.get_headers(),
-                region   = cfg["CLIENT_REGION"],
-                interval = cfg["EMISSION_INTERVAL"],
-            )
-            self._emission_worker.emission_started.connect(self._on_emission_started)
-            self._emission_worker.emission_ended.connect(self._on_emission_ended)
-            self._emission_worker.status_changed.connect(self.tab_emission.set_status)
-            self._emission_worker.start()
-        else:
-            self._stop_emission()
-
-    def _stop_emission(self):
-        if self._emission_worker:
-            self._emission_worker.stop()
-            self._emission_worker.wait(3000)
-            self._emission_worker = None
-
-    def _on_emission_started(self, timestamp: str):
-        self.tab_emission.log_started(timestamp)
-        self.tab_watchlist.add_log(f"Выброс начался в {timestamp}")
-        QApplication.beep()
-        self.activateWindow()
-        self.raise_()
-        idx = self._tabs_widget.indexOf(self.tab_emission)
-        self._tabs_widget.setTabText(idx, "! Выброс")
-
-    def _on_emission_ended(self, timestamp: str):
-        self.tab_emission.log_ended(timestamp)
-        idx = self._tabs_widget.indexOf(self.tab_emission)
-        self._tabs_widget.setTabText(idx, "Выброс")
-
     def _load_config(self) -> dict:
         defaults = {
             "CLIENT_ID": "", "CLIENT_SECRET": "",
             "CLIENT_REGION": "RU", "INTERVAL": 30,
-            "THRESHOLD": 0.7, "EMISSION_INTERVAL": 60,
-            "THEME": theme.DARK,
+            "THRESHOLD": 0.7, "THEME": theme.DARK,
         }
         if self._env_path.exists():
             with open(self._env_path, encoding="utf-8") as f:

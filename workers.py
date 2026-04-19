@@ -1,6 +1,5 @@
 import statistics
 import threading
-from datetime import datetime
 
 import requests
 from PyQt6.QtCore import QThread, pyqtSignal
@@ -153,71 +152,3 @@ class AuctionWorker(QThread):
             )
 
 
-class EmissionWorker(QThread):
-    emission_started = pyqtSignal(str)   # currentStart ISO timestamp
-    emission_ended   = pyqtSignal(str)   # previousEnd ISO timestamp
-    status_changed   = pyqtSignal(str)
-
-    def __init__(self, api_url, headers, region, interval=60):
-        super().__init__()
-        self.api_url      = api_url
-        self.headers      = headers.copy()
-        self.region       = region
-        self.interval     = interval
-        self._stop        = threading.Event()
-        self._last_start  = None  # last known currentStart
-
-    def run(self):
-        # first tick — learn current state without alerting
-        self._poll(silent=True)
-        while not self._stop.is_set():
-            self._stop.wait(self.interval)
-            if not self._stop.is_set():
-                self._poll(silent=False)
-
-    def stop(self):
-        self._stop.set()
-
-    def _poll(self, silent: bool):
-        try:
-            r = requests.get(
-                f"{self.api_url}/{self.region}/emission",
-                headers=self.headers,
-                timeout=10,
-            )
-            if r.status_code != 200:
-                self.status_changed.emit(f"Ошибка выброса {r.status_code}")
-                return
-
-            data    = r.json()
-            current = data.get("currentStart")
-
-            if not silent and current != self._last_start:
-                if current is not None:
-                    self.emission_started.emit(current)
-                elif self._last_start is not None:
-                    prev_end = data.get("previousEnd", "")
-                    self.emission_ended.emit(prev_end)
-
-            self._last_start = current
-
-            if current:
-                self.status_changed.emit(f"Выброс активен с {_fmt(current)}")
-            else:
-                prev = data.get("previousEnd", "")
-                self.status_changed.emit(
-                    f"Выброса нет  |  последний закончился: {_fmt(prev)}"
-                )
-        except Exception as e:
-            self.status_changed.emit(f"Ошибка опроса выброса: {e}")
-
-
-def _fmt(iso: str) -> str:
-    """Convert ISO timestamp to HH:MM DD.MM."""
-    if not iso:
-        return "—"
-    try:
-        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
-        return dt.strftime("%H:%M %d.%m")
-    except Exception:
-        return iso

@@ -40,11 +40,6 @@ class SettingsTab(QWidget):
             "Алерт когда цена выкупа < X × медианная цена (0.7 = 70%)"
         )
 
-        self.spn_emission_interval = QSpinBox()
-        self.spn_emission_interval.setRange(10, 600)
-        self.spn_emission_interval.setValue(int(config.get("EMISSION_INTERVAL", 60)))
-        self.spn_emission_interval.setSuffix(" сек")
-
         lay.addWidget(QLabel("Client ID:"))
         lay.addWidget(self.txt_id)
         lay.addWidget(QLabel("Client Secret:"))
@@ -54,8 +49,6 @@ class SettingsTab(QWidget):
         lay.addWidget(hline())
         lay.addWidget(QLabel("Интервал опроса аукциона:"))
         lay.addWidget(self.spn_interval)
-        lay.addWidget(QLabel("Интервал проверки выброса:"))
-        lay.addWidget(self.spn_emission_interval)
         lay.addWidget(QLabel(
             "Порог оповещения (0.70 = алерт если цена < 70% от рынка):"
         ))
@@ -72,12 +65,11 @@ class SettingsTab(QWidget):
 
     def get_config(self) -> dict:
         return {
-            "CLIENT_ID":         self.txt_id.text().strip(),
-            "CLIENT_SECRET":     self.txt_secret.text().strip(),
-            "CLIENT_REGION":     self.cmb_region.currentText(),
-            "INTERVAL":          self.spn_interval.value(),
-            "THRESHOLD":         self.spn_threshold.value(),
-            "EMISSION_INTERVAL": self.spn_emission_interval.value(),
+            "CLIENT_ID":     self.txt_id.text().strip(),
+            "CLIENT_SECRET": self.txt_secret.text().strip(),
+            "CLIENT_REGION": self.cmb_region.currentText(),
+            "INTERVAL":      self.spn_interval.value(),
+            "THRESHOLD":     self.spn_threshold.value(),
         }
 
     def get_headers(self) -> dict:
@@ -101,11 +93,11 @@ class SettingsTab(QWidget):
             return
         try:
             r = requests.get(
-                f"{PRODUCTION_API}/{cfg['CLIENT_REGION']}/emission",
+                f"{PRODUCTION_API}/{cfg['CLIENT_REGION']}/auction/test/lots",
                 headers=self.get_headers(),
                 timeout=5,
             )
-            if r.status_code == 200:
+            if r.status_code in (200, 404):
                 QMessageBox.information(self, "API", "Токен рабочий ✓")
             else:
                 QMessageBox.warning(self, "API", f"Ошибка {r.status_code}:\n{r.text[:300]}")
