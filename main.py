@@ -16,6 +16,9 @@ log = logging.getLogger("app")
 
 def _icon_path() -> Path:
     if getattr(sys, "frozen", False):
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            return Path(meipass) / "icon.ico"
         return Path(sys.executable).parent / "icon.ico"
     return Path(__file__).parent / "icon.ico"
 
