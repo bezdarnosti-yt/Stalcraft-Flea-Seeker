@@ -60,13 +60,23 @@ def main():
     print("Генерирую credentials.py...")
     Path("credentials.py").write_text(creds_code, encoding="utf-8")
 
-    print("Запускаю PyInstaller...")
-    result = subprocess.run([
+    cmd = [
         sys.executable, "-m", "PyInstaller",
         "--onefile", "--windowed",
         "--name", "calcraft-bot",
-        "main.py",
-    ])
+    ]
+
+    icon = Path("icon.ico")
+    if icon.exists():
+        cmd += ["--icon", str(icon), "--add-data", f"{icon};."]
+        print("Иконка найдена, включаю в сборку")
+    else:
+        print("Предупреждение: icon.ico не найден, exe будет без иконки")
+
+    cmd.append("main.py")
+
+    print("Запускаю PyInstaller...")
+    result = subprocess.run(cmd)
 
     print("Сбрасываю credentials.py к пустышке...")
     Path("credentials.py").write_text(_PLACEHOLDER, encoding="utf-8")
