@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QEvent, QTimer
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QMessageBox, QPushButton, QTabWidget,
 )
@@ -44,15 +44,12 @@ class MainWindow(QMainWindow):
         tabs.addTab(self.tab_emission,  "Выброс")
         self._tabs_widget = tabs
 
-        tabs.tabBar().setExpanding(False)
-
-        self._btn_theme = QPushButton()
-        self._btn_theme.setObjectName("btn_theme")
-        self._btn_theme.setFixedWidth(120)
-        self._btn_theme.clicked.connect(self._toggle_theme)
-        tabs.setCornerWidget(self._btn_theme)
-
         self.setCentralWidget(tabs)
+
+        self._btn_theme = QPushButton(parent=tabs)
+        self._btn_theme.setObjectName("btn_theme")
+        self._btn_theme.clicked.connect(self._toggle_theme)
+        tabs.installEventFilter(self)
 
         self.tab_search.add_requested.connect(self._on_add_to_watchlist)
         self.tab_watchlist.start_requested.connect(self._start_auction)
@@ -67,6 +64,27 @@ class MainWindow(QMainWindow):
         self._stop_auction()
         self._stop_emission()
         event.accept()
+
+    def eventFilter(self, obj, event):
+        if obj is self._tabs_widget and event.type() in (
+            QEvent.Type.Resize, QEvent.Type.Show
+        ):
+            self._reposition_theme_btn()
+        return super().eventFilter(obj, event)
+
+    def _reposition_theme_btn(self):
+        bar = self._tabs_widget.tabBar()
+        btn = self._btn_theme
+        btn.adjustSize()
+        bw = max(btn.sizeHint().width() + 16, 110)
+        bh = bar.height() - 6
+        btn.setGeometry(
+            self._tabs_widget.width() - bw - 4,
+            3,
+            bw,
+            bh,
+        )
+        btn.raise_()
 
     def _apply_theme(self, name: str):
         theme.set_theme(name)
