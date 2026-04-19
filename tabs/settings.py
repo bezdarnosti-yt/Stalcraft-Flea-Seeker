@@ -110,11 +110,11 @@ class SettingsTab(QWidget):
             return
         try:
             r = requests.get(
-                f"{PRODUCTION_API}/{cfg['CLIENT_REGION']}/auction/test/lots",
+                f"{PRODUCTION_API}/{cfg['CLIENT_REGION']}/emission",
                 headers=self.get_headers(),
                 timeout=5,
             )
-            if r.status_code in (200, 404):
+            if r.status_code == 200:
                 QMessageBox.information(self, "API", "Токен рабочий ✓")
             else:
                 QMessageBox.warning(self, "API", f"Ошибка {r.status_code}:\n{r.text[:300]}")

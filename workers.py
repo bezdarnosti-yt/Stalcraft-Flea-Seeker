@@ -1,5 +1,6 @@
 import statistics
 import threading
+from datetime import datetime
 
 import requests
 from PyQt6.QtCore import QThread, pyqtSignal
