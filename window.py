@@ -3,8 +3,11 @@ from pathlib import Path
 from typing import Optional
 
 from PyQt6.QtCore import QTimer
-from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QTabWidget
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QMessageBox, QPushButton, QTabWidget,
+)
 
+import theme
 from constants import PRODUCTION_API, UPGRADE_ANY
 from database import ItemDatabase
 from workers import AuctionWorker, EmissionWorker
@@ -17,8 +20,8 @@ from tabs.emission  import EmissionTab
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Stalcraft Flea Bot")
-        self.setMinimumSize(820, 540)
+        self.setWindowTitle("Stalcraft Flea Seeker")
+        self.setMinimumSize(860, 560)
 
         self._env_path       = Path("env.json")
         self._watchlist_path = Path("watchlist.json")
@@ -28,7 +31,6 @@ class MainWindow(QMainWindow):
 
         self._auction_worker:  Optional[AuctionWorker]  = None
         self._emission_worker: Optional[EmissionWorker] = None
-
 
         self.tab_settings  = SettingsTab(self._config)
         self.tab_search    = SearchTab(self._db)
@@ -43,6 +45,11 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(tabs)
         self._tabs_widget = tabs
 
+        self._btn_theme = QPushButton()
+        self._btn_theme.setObjectName("btn_theme")
+        self._btn_theme.setFixedWidth(115)
+        self._btn_theme.clicked.connect(self._toggle_theme)
+        tabs.setCornerWidget(self._btn_theme)
 
         self.tab_search.add_requested.connect(self._on_add_to_watchlist)
         self.tab_watchlist.start_requested.connect(self._start_auction)
@@ -50,7 +57,7 @@ class MainWindow(QMainWindow):
         self.tab_watchlist.remove_requested.connect(self._remove_from_watchlist)
         self.tab_emission.monitoring_toggled.connect(self._toggle_emission)
 
-
+        self._apply_theme(self._config.get("THEME", theme.DARK))
         QTimer.singleShot(200, self._init_db)
 
     def closeEvent(self, event):
@@ -58,7 +65,22 @@ class MainWindow(QMainWindow):
         self._stop_emission()
         event.accept()
 
+    def _apply_theme(self, name: str):
+        theme.set_theme(name)
+        QApplication.instance().setStyleSheet(theme.stylesheet(name))
+        if name == theme.LIGHT:
+            self._btn_theme.setText("Тёмная тема")
+        else:
+            self._btn_theme.setText("Светлая тема")
+        self._config["THEME"] = name
+        self.tab_watchlist.refresh()
+        self.tab_search.repaint_quality()
+        self.tab_emission.refresh_theme()
 
+    def _toggle_theme(self):
+        name = theme.LIGHT if theme.current() == theme.DARK else theme.DARK
+        self._apply_theme(name)
+        self._save_config()
 
     def _init_db(self):
         self.tab_search.set_db_status("Загрузка...")
@@ -67,8 +89,6 @@ class MainWindow(QMainWindow):
             f"База загружена: {len(self._db.items)} предметов"
             if ok else "Ошибка загрузки — проверьте интернет"
         )
-
-
 
     def _on_add_to_watchlist(self, entry: dict):
         upgrade = entry.get("upgrade", UPGRADE_ANY)
@@ -95,8 +115,6 @@ class MainWindow(QMainWindow):
             self._watchlist.pop(row)
             self._save_watchlist()
             self.tab_watchlist.refresh()
-
-
 
     def _start_auction(self):
         if not self._watchlist:
@@ -141,8 +159,6 @@ class MainWindow(QMainWindow):
         self.activateWindow()
         self.raise_()
 
-
-
     def _toggle_emission(self, enabled: bool):
         if enabled:
             cfg = self.tab_settings.get_config()
@@ -184,18 +200,21 @@ class MainWindow(QMainWindow):
         idx = self._tabs_widget.indexOf(self.tab_emission)
         self._tabs_widget.setTabText(idx, "Выброс")
 
-
-
     def _load_config(self) -> dict:
         defaults = {
             "CLIENT_ID": "", "CLIENT_SECRET": "",
             "CLIENT_REGION": "RU", "INTERVAL": 30,
             "THRESHOLD": 0.7, "EMISSION_INTERVAL": 60,
+            "THEME": theme.DARK,
         }
         if self._env_path.exists():
             with open(self._env_path, encoding="utf-8") as f:
                 defaults.update(json.load(f))
         return defaults
+
+    def _save_config(self):
+        with open(self._env_path, "w", encoding="utf-8") as f:
+            json.dump(self._config, f, ensure_ascii=False, indent=4)
 
     def _load_watchlist(self) -> list:
         if self._watchlist_path.exists():

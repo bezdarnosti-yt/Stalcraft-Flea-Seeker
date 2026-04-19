@@ -36,15 +36,6 @@ QUALITY_HEX = {
     "RANK_LEGEND":  "#ffaa00",
 }
 
-QUALITY_BG_HEX = {
-    "DEFAULT":      "#1A1919",
-    "RANK_NEWBIE":  "#0d250d",
-    "RANK_STALKER": "#0a0a1f",
-    "RANK_VETERAN": "#1D001D",
-    "RANK_MASTER":  "#200b0b",
-    "RANK_LEGEND":  "#1b1200",
-}
-
 
 def get_upgrade_level(additional: dict) -> int:
     if "upgrade_level" in additional:

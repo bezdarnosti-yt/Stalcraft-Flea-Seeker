@@ -8,22 +8,22 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
-from constants import (
-    QUALITY_BG_HEX, QUALITY_HEX, QUALITY_MAP,
-    UPGRADE_ANY, bold_font, hline, load_icon,
-)
+import theme
+from constants import QUALITY_HEX, QUALITY_MAP, UPGRADE_ANY, bold_font, hline, load_icon
 
 
 class WatchlistTab(QWidget):
     start_requested  = pyqtSignal()
     stop_requested   = pyqtSignal()
-    remove_requested = pyqtSignal(int)   # row index
+    remove_requested = pyqtSignal(int)
 
     def __init__(self, watchlist: list[dict]):
         super().__init__()
         self.watchlist = watchlist
 
         lay = QVBoxLayout(self)
+        lay.setSpacing(8)
+        lay.setContentsMargins(10, 10, 10, 10)
 
         self.tbl = QTableWidget(0, 6)
         self.tbl.setHorizontalHeaderLabels(
@@ -37,14 +37,17 @@ class WatchlistTab(QWidget):
         self.tbl.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tbl.setAlternatingRowColors(True)
         self.tbl.setIconSize(QSize(36, 36))
-        self.tbl.verticalHeader().setDefaultSectionSize(44)
+        self.tbl.verticalHeader().setDefaultSectionSize(46)
         self.tbl.verticalHeader().setVisible(False)
         lay.addWidget(self.tbl)
 
         btns = QHBoxLayout()
+        btns.setSpacing(6)
         self.btn_start = QPushButton("Старт")
+        self.btn_start.setObjectName("btn_start")
         self.btn_start.clicked.connect(self.start_requested)
         self.btn_stop = QPushButton("Стоп")
+        self.btn_stop.setObjectName("btn_stop")
         self.btn_stop.setEnabled(False)
         self.btn_stop.clicked.connect(self.stop_requested)
         btn_remove = QPushButton("Удалить выбранный")
@@ -109,7 +112,7 @@ class WatchlistTab(QWidget):
     def _fill_row(self, row: int, item: dict):
         ck      = item["color"]
         fg      = QColor(QUALITY_HEX.get(ck, "#AAAAAA"))
-        bg      = QColor(QUALITY_BG_HEX.get(ck, "#1A1919"))
+        bg      = QColor(theme.quality_bg(ck))
         upgrade = item.get("upgrade", UPGRADE_ANY)
 
         cell_name = QTableWidgetItem(item["name"])
@@ -123,8 +126,8 @@ class WatchlistTab(QWidget):
         cell_qual.setBackground(bg)
         cell_qual.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        upg_text  = "Любая" if upgrade == UPGRADE_ANY else f"+{upgrade}"
-        cell_upg  = QTableWidgetItem(upg_text)
+        upg_text = "Любая" if upgrade == UPGRADE_ANY else f"+{upgrade}"
+        cell_upg = QTableWidgetItem(upg_text)
         cell_upg.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.tbl.setItem(row, 0, cell_name)

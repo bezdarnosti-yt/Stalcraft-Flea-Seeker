@@ -8,27 +8,27 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
-from constants import (
-    QUALITY_BG_HEX, QUALITY_HEX, QUALITY_MAP,
-    UPGRADE_ANY, load_icon,
-)
+import theme
+from constants import QUALITY_HEX, QUALITY_MAP, UPGRADE_ANY, load_icon
 from database import ItemDatabase
 from workers import IconLoader
 
 
 class SearchTab(QWidget):
-    add_requested = pyqtSignal(dict)   # emits watchlist entry {id,name,color,icon,upgrade}
+    add_requested = pyqtSignal(dict)
 
     def __init__(self, db: ItemDatabase):
         super().__init__()
         self.db = db
         self._icon_loader: Optional[IconLoader] = None
-        self._row_map: dict[str, int] = {}   # item_id → row
+        self._row_map: dict[str, int] = {}
 
         lay = QVBoxLayout(self)
+        lay.setSpacing(8)
+        lay.setContentsMargins(10, 10, 10, 10)
 
-        # --- filter row ---
         top = QHBoxLayout()
+        top.setSpacing(6)
         self.txt_search = QLineEdit()
         self.txt_search.setPlaceholderText("Название предмета (мин. 2 символа)...")
         self.txt_search.textChanged.connect(self._on_changed)
@@ -56,7 +56,6 @@ class SearchTab(QWidget):
         top.addWidget(btn_refresh)
         lay.addLayout(top)
 
-        # --- table ---
         self.tbl = QTableWidget(0, 3)
         self.tbl.setHorizontalHeaderLabels(["Название", "Ранг", "ID"])
         hdr = self.tbl.horizontalHeader()
@@ -67,15 +66,14 @@ class SearchTab(QWidget):
         self.tbl.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.tbl.setAlternatingRowColors(True)
         self.tbl.setIconSize(QSize(36, 36))
-        self.tbl.verticalHeader().setDefaultSectionSize(44)
+        self.tbl.verticalHeader().setDefaultSectionSize(46)
         self.tbl.verticalHeader().setVisible(False)
         lay.addWidget(self.tbl)
 
-        # --- bottom ---
         bot = QHBoxLayout()
         self.lbl_status = QLabel("Загрузка базы предметов...")
-        btn_add = QPushButton("Добавить в список слежки →")
-        btn_add.setFixedWidth(210)
+        btn_add = QPushButton("Добавить в список слежки")
+        btn_add.setFixedWidth(200)
         btn_add.clicked.connect(self._add)
         bot.addWidget(self.lbl_status, stretch=1)
         bot.addWidget(btn_add)
@@ -83,6 +81,20 @@ class SearchTab(QWidget):
 
     def set_db_status(self, text: str):
         self.lbl_status.setText(text)
+
+    def repaint_quality(self):
+        for row in range(self.tbl.rowCount()):
+            name_cell = self.tbl.item(row, 0)
+            if name_cell is None:
+                continue
+            item = name_cell.data(Qt.ItemDataRole.UserRole)
+            if item is None:
+                continue
+            ck   = item["color"]
+            bg   = QColor(theme.quality_bg(ck))
+            cell = self.tbl.item(row, 1)
+            if cell:
+                cell.setBackground(bg)
 
     def _refresh_db(self):
         self.lbl_status.setText("Загрузка...")
@@ -111,7 +123,7 @@ class SearchTab(QWidget):
         for row, item in enumerate(results):
             ck  = item["color"]
             fg  = QColor(QUALITY_HEX.get(ck, "#AAAAAA"))
-            bg  = QColor(QUALITY_BG_HEX.get(ck, "#1A1919"))
+            bg  = QColor(theme.quality_bg(ck))
 
             cell_name = QTableWidgetItem(item["name"])
             cell_name.setForeground(fg)
