@@ -1,9 +1,12 @@
+import logging
 import statistics
 import threading
 from datetime import datetime
 
 import requests
 from PyQt6.QtCore import QThread, pyqtSignal
+
+log = logging.getLogger(__name__)
 
 from constants import ICON_BASE_URL, ICON_CACHE_DIR, UPGRADE_ANY, get_upgrade_level
 
@@ -66,6 +69,7 @@ class AuctionWorker(QThread):
                 try:
                     self._check(item)
                 except Exception as e:
+                    log.exception("Ошибка проверки %s", item["name"])
                     self.status_changed.emit(f"Ошибка {item['name']}: {e}")
                 if not self._stop.is_set():
                     self._stop.wait(1)
