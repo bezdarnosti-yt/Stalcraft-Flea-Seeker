@@ -1,5 +1,7 @@
 # Stalcraft Flea Seeker
 
+[Поддержать автора (DonationAlerts)](https://www.donationalerts.com/r/bezdarnosti1)
+
 Десктопная утилита для мониторинга аукциона StalCraft. Следит за нужными предметами, сравнивает текущую цену выкупа со средней по рынку и оповещает, когда что-то продаётся заметно дешевле обычного.
 
 ![](screenshots/Main1.png)
