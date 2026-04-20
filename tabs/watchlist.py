@@ -1,12 +1,51 @@
 from datetime import datetime
 
-from PyQt6.QtCore import QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QColor
+from PyQt6.QtCore import QPointF, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QColor, QPainter, QPen
 from PyQt6.QtWidgets import (
     QHBoxLayout, QHeaderView, QLabel, QMessageBox,
-    QPushButton, QTextEdit, QTableWidget, QTableWidgetItem,
-    QVBoxLayout, QWidget,
+    QPushButton, QStyle, QStyledItemDelegate, QTextEdit,
+    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
+
+
+class _SparklineDelegate(QStyledItemDelegate):
+    def paint(self, painter, option, index):
+        prices = index.data(Qt.ItemDataRole.UserRole)
+        if not prices or len(prices) < 2:
+            super().paint(painter, option, index)
+            return
+
+        selected = bool(option.state & QStyle.StateFlag.State_Selected)
+        bg = option.palette.highlight() if selected else option.palette.base()
+        painter.fillRect(option.rect, bg)
+
+        rect = option.rect.adjusted(4, 5, -4, -5)
+        mn, mx = min(prices), max(prices)
+
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        pen = QPen(QColor("#6272e8"), 1.5)
+        painter.setPen(pen)
+
+        w, h = rect.width(), rect.height()
+        n = len(prices)
+
+        if mn == mx:
+            y = rect.top() + h / 2
+            painter.drawLine(QPointF(rect.left(), y), QPointF(rect.right(), y))
+        else:
+            pts = [
+                QPointF(
+                    rect.left() + i / (n - 1) * w,
+                    rect.bottom() - (p - mn) / (mx - mn) * h,
+                )
+                for i, p in enumerate(prices)
+            ]
+            for i in range(len(pts) - 1):
+                painter.drawLine(pts[i], pts[i + 1])
+
+        painter.restore()
 
 import theme
 from constants import QUALITY_HEX, QUALITY_MAP, UPGRADE_ANY, bold_font, hline, load_icon
@@ -25,15 +64,17 @@ class WatchlistTab(QWidget):
         lay.setSpacing(8)
         lay.setContentsMargins(10, 10, 10, 10)
 
-        self.tbl = QTableWidget(0, 8)
+        self.tbl = QTableWidget(0, 9)
         self.tbl.setHorizontalHeaderLabels(
-            ["Название", "Ранг", "Заточка", "Рынок", "Дёшево", "За день", "За неделю", "Скидка"]
+            ["Название", "Ранг", "Заточка", "Рынок", "Дёшево", "За день", "За неделю", "График", "Скидка"]
         )
         hdr = self.tbl.horizontalHeader()
         hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        for col in range(1, 8):
+        hdr.setSectionResizeMode(7, QHeaderView.ResizeMode.Stretch)
+        for col in (1, 2, 3, 4, 5, 6, 8):
             hdr.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
         hdr.setSectionsMovable(True)
+        self.tbl.setItemDelegateForColumn(7, _SparklineDelegate(self.tbl))
         self.tbl.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.tbl.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tbl.setAlternatingRowColors(True)
@@ -84,6 +125,15 @@ class WatchlistTab(QWidget):
 
     def set_status(self, text: str):
         self.lbl_status.setText(text)
+
+    def update_history(self, item_id: str, upgrade: int, prices: list):
+        for row, item in enumerate(self.watchlist):
+            if item["id"] != item_id or item.get("upgrade", UPGRADE_ANY) != upgrade:
+                continue
+            cell = QTableWidgetItem()
+            cell.setData(Qt.ItemDataRole.UserRole, prices)
+            self.tbl.setItem(row, 7, cell)
+            break
 
     def update_sales(self, item_id: str, upgrade: int,
                      sold_day: int, sold_week: int):
@@ -145,7 +195,7 @@ class WatchlistTab(QWidget):
         self.tbl.setItem(row, 0, cell_name)
         self.tbl.setItem(row, 1, cell_qual)
         self.tbl.setItem(row, 2, cell_upg)
-        for col in range(3, 8):
+        for col in range(3, 9):
             self.tbl.setItem(row, col, QTableWidgetItem("—"))
 
     def _set_price_cells(self, row: int, cheapest: int,
@@ -167,9 +217,9 @@ class WatchlistTab(QWidget):
             if discount <= threshold:
                 cell.setForeground(QColor("#FF4444"))
                 cell.setFont(bold_font())
-            self.tbl.setItem(row, 7, cell)
+            self.tbl.setItem(row, 8, cell)
         else:
-            self.tbl.setItem(row, 7, QTableWidgetItem("мало данных"))
+            self.tbl.setItem(row, 8, QTableWidgetItem("мало данных"))
 
     def _on_remove(self):
         row = self.tbl.currentRow()

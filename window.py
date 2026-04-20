@@ -195,6 +195,7 @@ class MainWindow(QMainWindow):
         )
         self._auction_worker.prices_updated.connect(self._on_prices_updated)
         self._auction_worker.sales_updated.connect(self.tab_watchlist.update_sales)
+        self._auction_worker.history_updated.connect(self.tab_watchlist.update_history)
         self._auction_worker.deal_found.connect(self._on_deal_found)
         self._auction_worker.status_changed.connect(self.tab_watchlist.set_status)
         self._auction_worker.start()

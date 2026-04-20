@@ -45,10 +45,11 @@ class IconLoader(QThread):
 
 
 class AuctionWorker(QThread):
-    prices_updated = pyqtSignal(str, int, int, int)        # item_id, upgrade, cheapest, market
-    sales_updated  = pyqtSignal(str, int, int, int)        # item_id, upgrade, sold_day, sold_week
-    deal_found     = pyqtSignal(str, str, int, int, int)   # name, color, level, buyout, market
-    status_changed = pyqtSignal(str)
+    prices_updated  = pyqtSignal(str, int, int, int)        # item_id, upgrade, cheapest, market
+    sales_updated   = pyqtSignal(str, int, int, int)        # item_id, upgrade, sold_day, sold_week
+    history_updated = pyqtSignal(str, int, list)            # item_id, upgrade, prices
+    deal_found      = pyqtSignal(str, str, int, int, int)   # name, color, level, buyout, market
+    status_changed  = pyqtSignal(str)
 
     def __init__(self, api_url, headers, region, watchlist, threshold, interval):
         super().__init__()
@@ -169,6 +170,7 @@ class AuctionWorker(QThread):
         sold_week = sum(p.get("amount", 1) for p in history
                         if _matches(p) and _ts(p) >= week_ago)
         self.sales_updated.emit(item_id, want_upgrade, sold_day, sold_week)
+        self.history_updated.emit(item_id, want_upgrade, prices[:50])
 
         if len(prices) < 3:
             self.prices_updated.emit(item_id, want_upgrade, buyout, 0)
