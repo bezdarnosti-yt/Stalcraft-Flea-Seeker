@@ -1,9 +1,11 @@
+import json
+from pathlib import Path
 from typing import Optional
 
 from PyQt6.QtCore import Qt, QSize, pyqtSignal
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
-    QComboBox, QHBoxLayout, QHeaderView, QLabel, QLineEdit,
+    QComboBox, QHBoxLayout, QHeaderView, QLabel,
     QMessageBox, QPushButton, QTableWidget, QTableWidgetItem,
     QVBoxLayout, QWidget,
 )
@@ -13,15 +15,20 @@ from constants import QUALITY_HEX, QUALITY_MAP, UPGRADE_ANY, load_icon
 from database import ItemDatabase
 from workers import IconLoader
 
+_HISTORY_PATH = Path("search_history.json")
+_MAX_HISTORY  = 15
+
 
 class SearchTab(QWidget):
     add_requested = pyqtSignal(dict)
 
     def __init__(self, db: ItemDatabase):
         super().__init__()
-        self.db = db
-        self._icon_loader: Optional[IconLoader] = None
-        self._row_map: dict[str, int] = {}
+        self.db             = db
+        self._icon_loader:  Optional[IconLoader] = None
+        self._row_map:  dict[str, int] = {}
+        self._results:  list[dict]     = []
+        self._history:  list[str]      = self._load_history()
 
         lay = QVBoxLayout(self)
         lay.setSpacing(8)
@@ -29,9 +36,14 @@ class SearchTab(QWidget):
 
         top = QHBoxLayout()
         top.setSpacing(6)
-        self.txt_search = QLineEdit()
-        self.txt_search.setPlaceholderText("Название предмета (мин. 2 символа)...")
-        self.txt_search.textChanged.connect(self._on_changed)
+
+        self.cmb_search = QComboBox()
+        self.cmb_search.setEditable(True)
+        self.cmb_search.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.cmb_search.lineEdit().setPlaceholderText("Название предмета (мин. 2 символа)...")
+        self.cmb_search.lineEdit().textChanged.connect(self._on_changed)
+        self.cmb_search.activated.connect(lambda _: self._on_changed())
+        self._populate_history_combo()
 
         self.cmb_quality = QComboBox()
         self.cmb_quality.setFixedWidth(120)
@@ -50,18 +62,17 @@ class SearchTab(QWidget):
         btn_refresh.setFixedWidth(105)
         btn_refresh.clicked.connect(self._refresh_db)
 
-        top.addWidget(self.txt_search, stretch=1)
+        top.addWidget(self.cmb_search, stretch=1)
         top.addWidget(self.cmb_quality)
         top.addWidget(self.cmb_upgrade)
         top.addWidget(btn_refresh)
         lay.addLayout(top)
 
-        self.tbl = QTableWidget(0, 3)
-        self.tbl.setHorizontalHeaderLabels(["Название", "Ранг", "ID"])
+        self.tbl = QTableWidget(0, 2)
+        self.tbl.setHorizontalHeaderLabels(["Название", "Ранг"])
         hdr = self.tbl.horizontalHeader()
         hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         self.tbl.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tbl.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.tbl.setAlternatingRowColors(True)
@@ -79,22 +90,59 @@ class SearchTab(QWidget):
         bot.addWidget(btn_add)
         lay.addLayout(bot)
 
+    # ── public ───────────────────────────────────────────────────────────────
+
     def set_db_status(self, text: str):
         self.lbl_status.setText(text)
 
     def repaint_quality(self):
         for row in range(self.tbl.rowCount()):
-            name_cell = self.tbl.item(row, 0)
-            if name_cell is None:
+            cell = self.tbl.item(row, 0)
+            if cell is None:
                 continue
-            item = name_cell.data(Qt.ItemDataRole.UserRole)
+            item = cell.data(Qt.ItemDataRole.UserRole)
             if item is None:
                 continue
-            ck   = item["color"]
-            bg   = QColor(theme.quality_bg(ck))
-            cell = self.tbl.item(row, 1)
-            if cell:
-                cell.setBackground(bg)
+            q = self.tbl.item(row, 1)
+            if q:
+                q.setBackground(QColor(theme.quality_bg(item["color"])))
+
+    # ── private ──────────────────────────────────────────────────────────────
+
+    def _populate_history_combo(self):
+        self.cmb_search.blockSignals(True)
+        current = self.cmb_search.lineEdit().text()
+        self.cmb_search.clear()
+        for h in self._history:
+            self.cmb_search.addItem(h)
+        self.cmb_search.lineEdit().setText(current)
+        self.cmb_search.blockSignals(False)
+
+    def _push_history(self, query: str):
+        if not query or len(query) < 2:
+            return
+        if query in self._history:
+            self._history.remove(query)
+        self._history.insert(0, query)
+        self._history = self._history[:_MAX_HISTORY]
+        self._populate_history_combo()
+        self._save_history()
+
+    def _load_history(self) -> list[str]:
+        if _HISTORY_PATH.exists():
+            try:
+                return json.loads(_HISTORY_PATH.read_text("utf-8"))
+            except Exception:
+                pass
+        return []
+
+    def _save_history(self):
+        try:
+            _HISTORY_PATH.write_text(
+                json.dumps(self._history, ensure_ascii=False), "utf-8"
+            )
+        except Exception:
+            pass
 
     def _refresh_db(self):
         self.lbl_status.setText("Загрузка...")
@@ -109,21 +157,22 @@ class SearchTab(QWidget):
             self._icon_loader.stop()
             self._icon_loader.wait(300)
 
-        query   = self.txt_search.text().strip()
+        query   = self.cmb_search.lineEdit().text().strip()
         quality = self.cmb_quality.currentData()
         if len(query) < 2:
             self.tbl.setRowCount(0)
             self._row_map = {}
+            self._results = []
             return
 
-        results = self.db.search(query, quality)
-        self.tbl.setRowCount(len(results))
+        self._results = self.db.search(query, quality)
+        self.tbl.setRowCount(len(self._results))
         self._row_map = {}
 
-        for row, item in enumerate(results):
-            ck  = item["color"]
-            fg  = QColor(QUALITY_HEX.get(ck, "#AAAAAA"))
-            bg  = QColor(theme.quality_bg(ck))
+        for row, item in enumerate(self._results):
+            ck = item["color"]
+            fg = QColor(QUALITY_HEX.get(ck, "#AAAAAA"))
+            bg = QColor(theme.quality_bg(ck))
 
             cell_name = QTableWidgetItem(item["name"])
             cell_name.setForeground(fg)
@@ -139,10 +188,12 @@ class SearchTab(QWidget):
 
             self.tbl.setItem(row, 0, cell_name)
             self.tbl.setItem(row, 1, cell_qual)
-            self.tbl.setItem(row, 2, QTableWidgetItem(item["id"]))
             self._row_map[item["id"]] = row
 
-        self._icon_loader = IconLoader(results)
+        if self._results:
+            self._push_history(query)
+
+        self._icon_loader = IconLoader(self._results)
         self._icon_loader.icon_ready.connect(self._on_icon_ready)
         self._icon_loader.start()
 

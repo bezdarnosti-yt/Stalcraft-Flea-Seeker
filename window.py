@@ -71,6 +71,7 @@ class MainWindow(QMainWindow):
         self.tab_watchlist.start_requested.connect(self._start_auction)
         self.tab_watchlist.stop_requested.connect(self._stop_auction)
         self.tab_watchlist.remove_requested.connect(self._remove_from_watchlist)
+        self.tab_watchlist.reorder_requested.connect(self._save_watchlist)
 
         self._apply_theme(self._config.get("THEME", theme.DARK))
         self._restore_geometry()
