@@ -28,6 +28,7 @@ class MainWindow(QMainWindow):
 
         self._env_path       = Path("env.json")
         self._watchlist_path = Path("watchlist.json")
+        self._columns_path   = Path("watchlist_columns.dat")
         self._config         = self._load_config()
         self._watchlist      = self._load_watchlist()
         self._db             = ItemDatabase()
@@ -72,11 +73,15 @@ class MainWindow(QMainWindow):
         self.tab_watchlist.remove_requested.connect(self._remove_from_watchlist)
 
         self._apply_theme(self._config.get("THEME", theme.DARK))
+        self._restore_geometry()
+        self._restore_columns()
         QTimer.singleShot(200, self._init_db)
         QTimer.singleShot(1500, self._start_update_check)
 
     def closeEvent(self, event):
         self._stop_auction()
+        self._save_geometry()
+        self._save_columns()
         event.accept()
 
     def _start_update_check(self):
@@ -238,3 +243,27 @@ class MainWindow(QMainWindow):
     def _save_watchlist(self):
         with open(self._watchlist_path, "w", encoding="utf-8") as f:
             json.dump(self._watchlist, f, ensure_ascii=False, indent=4)
+
+    def _save_geometry(self):
+        g = self.geometry()
+        self._config["WINDOW"] = {
+            "x": g.x(), "y": g.y(),
+            "w": g.width(), "h": g.height(),
+        }
+        self._save_config()
+
+    def _restore_geometry(self):
+        w = self._config.get("WINDOW")
+        if w:
+            self.setGeometry(w["x"], w["y"], w["w"], w["h"])
+
+    def _save_columns(self):
+        state = self.tab_watchlist.tbl.horizontalHeader().saveState()
+        self._columns_path.write_bytes(bytes(state))
+
+    def _restore_columns(self):
+        if self._columns_path.exists():
+            from PyQt6.QtCore import QByteArray
+            self.tab_watchlist.tbl.horizontalHeader().restoreState(
+                QByteArray(self._columns_path.read_bytes())
+            )
