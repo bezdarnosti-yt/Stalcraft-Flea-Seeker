@@ -5,11 +5,16 @@
   1. Создай secrets.py (скопируй из secrets.example.py, впиши реальные ключи)
   2. Обнови __version__ в version.py если нужно
   3. Запусти: python build.py  (из venv с установленным PyInstaller)
-  4. Готовый exe будет в dist/calcraft-bot.exe
+  4. Готовая папка будет в dist/calcraft-bot-X.X.X/
+     Упакуй её в zip для раздачи.
 
 secrets.py никогда не коммитится в git.
+
+Примечание: --onedir вместо --onefile, т.к. QtWebEngine требует
+отдельного процесса QtWebEngineProcess.exe рядом с exe.
 """
 import base64
+import os
 import random
 import subprocess
 import sys
@@ -68,15 +73,21 @@ def main():
     print("Генерирую credentials.py...")
     Path("credentials.py").write_text(creds_code, encoding="utf-8")
 
+    sep = ";" if os.name == "nt" else ":"
+
     cmd = [
         sys.executable, "-m", "PyInstaller",
-        "--onefile", "--windowed",
+        "--onedir", "--windowed",
         "--name", f"calcraft-bot-{version}",
+        "--add-data", f"ui{sep}ui",
+        "--collect-all", "PyQt6.QtWebEngineWidgets",
+        "--collect-all", "PyQt6.QtWebEngineCore",
+        "--collect-all", "PyQt6.QtWebChannel",
     ]
 
     icon = Path("icon.ico")
     if icon.exists():
-        cmd += ["--icon", str(icon), "--add-data", f"{icon};."]
+        cmd += ["--icon", str(icon), "--add-data", f"{icon}{sep}."]
         print("Иконка найдена, включаю в сборку")
     else:
         print("Предупреждение: icon.ico не найден, exe будет без иконки")
@@ -90,7 +101,8 @@ def main():
     Path("credentials.py").write_text(_PLACEHOLDER, encoding="utf-8")
 
     if result.returncode == 0:
-        print(f"\nГотово! dist/calcraft-bot-{version}.exe")
+        print(f"\nГотово! dist/calcraft-bot-{version}/")
+        print("Упакуй папку в zip и распространяй.")
     else:
         print("\nPyInstaller завершился с ошибкой.")
 

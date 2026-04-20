@@ -5,6 +5,8 @@ from pathlib import Path
 import logging_setup
 logging_setup.setup()
 
+from PyQt6.QtCore import Qt
+from PyQt6.QtWebEngineWidgets import QWebEngineView  # must be before QApplication
 from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtWidgets import QApplication
 
@@ -24,7 +26,7 @@ def _icon_path() -> Path:
 
 
 def main():
-    app = QApplication([])
+    app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setApplicationName("Stalcraft Flea Seeker")
     app.setFont(QFont("Segoe UI", 10))
