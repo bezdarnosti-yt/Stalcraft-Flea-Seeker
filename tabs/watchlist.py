@@ -1,18 +1,26 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
-from PyQt6.QtCore import QPointF, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QPainter, QPen
+from PyQt6.QtCore import QPointF, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QColor, QFont, QPainter, QPen
 from PyQt6.QtWidgets import (
-    QCheckBox, QHBoxLayout, QHeaderView, QLabel, QMessageBox,
+    QCheckBox, QDialog, QHBoxLayout, QHeaderView, QLabel, QMessageBox,
     QPushButton, QStyle, QStyledItemDelegate, QTextEdit,
     QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
+import theme
+from constants import QUALITY_HEX, QUALITY_MAP, UPGRADE_ANY, bold_font, hline, load_icon
+
+_GREEN = "#3a7a3a"
+_RED   = "#7a3a3a"
+_GREEN_FG = "#8ecf5a"
+_RED_FG   = "#e05555"
+
 
 class _SparklineDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):
-        prices = index.data(Qt.ItemDataRole.UserRole)
-        if not prices or len(prices) < 2:
+        pairs = index.data(Qt.ItemDataRole.UserRole)
+        if not pairs or len(pairs) < 2:
             super().paint(painter, option, index)
             return
 
@@ -20,16 +28,14 @@ class _SparklineDelegate(QStyledItemDelegate):
         bg = option.palette.highlight() if selected else option.palette.base()
         painter.fillRect(option.rect, bg)
 
+        prices = [p for _, p in pairs]
         rect = option.rect.adjusted(4, 5, -4, -5)
         mn, mx = min(prices), max(prices)
+        w, h, n = rect.width(), rect.height(), len(prices)
 
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pen = QPen(QColor("#6272e8"), 1.5)
-        painter.setPen(pen)
-
-        w, h = rect.width(), rect.height()
-        n = len(prices)
+        painter.setPen(QPen(QColor("#6272e8"), 1.5))
 
         if mn == mx:
             y = rect.top() + h / 2
@@ -47,8 +53,177 @@ class _SparklineDelegate(QStyledItemDelegate):
 
         painter.restore()
 
-import theme
-from constants import QUALITY_HEX, QUALITY_MAP, UPGRADE_ANY, bold_font, hline, load_icon
+
+class PriceChartDialog(QDialog):
+    def __init__(self, name: str, upgrade: int, pairs: list, parent=None):
+        super().__init__(parent)
+        upg = "любая заточка" if upgrade == UPGRADE_ANY else f"+{upgrade}"
+        self.setWindowTitle(f"{name} ({upg})")
+        self.resize(700, 420)
+
+        self._pairs = pairs
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(8, 8, 8, 8)
+        lay.setSpacing(6)
+
+        self._canvas = _ChartCanvas(pairs)
+        lay.addWidget(self._canvas)
+
+        prices = [p for _, p in pairs]
+        import statistics
+        info = QLabel(
+            f"Мин: {min(prices):,}  |  Макс: {max(prices):,}  |  "
+            f"Медиана: {int(statistics.median(prices)):,}  |  Сделок: {len(prices)}"
+        )
+        info.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(info)
+
+        btn = QPushButton("Закрыть")
+        btn.clicked.connect(self.accept)
+        btn.setFixedWidth(120)
+        row = QHBoxLayout()
+        row.addStretch()
+        row.addWidget(btn)
+        lay.addLayout(row)
+
+
+class _ChartCanvas(QWidget):
+    PAD_L, PAD_R, PAD_T, PAD_B = 75, 20, 20, 45
+
+    def __init__(self, pairs: list):
+        super().__init__()
+        self._pairs = pairs
+        self._cursor_x: int | None = None
+        self.setMinimumHeight(300)
+        self.setMouseTracking(True)
+
+    def mouseMoveEvent(self, event):
+        self._cursor_x = event.position().x()
+        self.update()
+
+    def leaveEvent(self, _):
+        self._cursor_x = None
+        self.update()
+
+    def paintEvent(self, _):
+        if not self._pairs or len(self._pairs) < 2:
+            return
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        is_dark = theme.current() == theme.DARK
+        bg_col   = QColor("#1e1f2e") if is_dark else QColor("#f5f6fa")
+        grid_col = QColor("#2d2e42") if is_dark else QColor("#e0e2ee")
+        line_col = QColor("#6272e8")
+        text_col = QColor("#c8cde8") if is_dark else QColor("#1e1f2e")
+        dot_col  = QColor("#8ecf5a")
+
+        W, H = self.width(), self.height()
+        PAD_L, PAD_R, PAD_T, PAD_B = 75, 20, 20, 45
+
+        painter.fillRect(0, 0, W, H, bg_col)
+
+        prices = [p for _, p in self._pairs]
+        times  = [t for t, _ in self._pairs]
+        mn, mx = min(prices), max(prices)
+        if mn == mx:
+            mn -= 1; mx += 1
+        margin = (mx - mn) * 0.08
+        mn -= margin; mx += margin
+
+        cw = W - PAD_L - PAD_R
+        ch = H - PAD_T - PAD_B
+
+        def px(i): return PAD_L + i / (len(prices) - 1) * cw
+        def py(v): return PAD_T + (1 - (v - mn) / (mx - mn)) * ch
+
+        # grid & Y labels
+        small_font = QFont()
+        small_font.setPointSize(8)
+        painter.setFont(small_font)
+        painter.setPen(QPen(grid_col, 1))
+        steps = 5
+        for i in range(steps + 1):
+            v = mn + (mx - mn) * i / steps
+            y = py(v)
+            painter.setPen(QPen(grid_col, 1))
+            painter.drawLine(QPointF(PAD_L, y), QPointF(W - PAD_R, y))
+            painter.setPen(text_col)
+            painter.drawText(QRectF(0, y - 10, PAD_L - 6, 20),
+                             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+                             f"{int(v):,}")
+
+        # X labels (dates)
+        painter.setPen(text_col)
+        label_count = min(6, len(times))
+        indices = [int(i * (len(times) - 1) / (label_count - 1)) for i in range(label_count)]
+        for idx in indices:
+            x = px(idx)
+            dt = datetime.fromtimestamp(times[idx], tz=timezone.utc).astimezone()
+            label = dt.strftime("%d.%m\n%H:%M")
+            painter.drawText(QRectF(x - 30, H - PAD_B + 4, 60, 40),
+                             Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
+                             label)
+
+        # chart border
+        painter.setPen(QPen(grid_col, 1))
+        painter.drawRect(PAD_L, PAD_T, cw, ch)
+
+        # price line
+        pts = [QPointF(px(i), py(p)) for i, p in enumerate(prices)]
+        painter.setPen(QPen(line_col, 2))
+        for i in range(len(pts) - 1):
+            painter.drawLine(pts[i], pts[i + 1])
+
+        # last point dot
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(dot_col)
+        painter.drawEllipse(pts[-1], 4, 4)
+
+        # crosshair
+        cx = self._cursor_x
+        if cx is not None and PAD_L <= cx <= W - PAD_R:
+            frac = (cx - PAD_L) / cw
+            idx = min(int(round(frac * (len(prices) - 1))), len(prices) - 1)
+            snap_x = px(idx)
+            snap_y = py(prices[idx])
+
+            cross_col = QColor("#ffffff") if is_dark else QColor("#000000")
+            cross_col.setAlpha(60)
+            painter.setPen(QPen(cross_col, 1, Qt.PenStyle.DashLine))
+            painter.drawLine(QPointF(snap_x, PAD_T), QPointF(snap_x, H - PAD_B))
+            painter.drawLine(QPointF(PAD_L, snap_y), QPointF(W - PAD_R, snap_y))
+
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(dot_col)
+            painter.drawEllipse(QPointF(snap_x, snap_y), 5, 5)
+
+            label = f"{prices[idx]:,}"
+            dt_label = datetime.fromtimestamp(times[idx], tz=timezone.utc).astimezone().strftime("%d.%m %H:%M")
+            bubble_text = f"{label}\n{dt_label}"
+
+            fm = painter.fontMetrics()
+            bw = max(fm.horizontalAdvance(label), fm.horizontalAdvance(dt_label)) + 16
+            bh = fm.height() * 2 + 12
+            bx = snap_x + 10
+            by = snap_y - bh - 6
+            if bx + bw > W - PAD_R:
+                bx = snap_x - bw - 10
+            if by < PAD_T:
+                by = snap_y + 10
+
+            bubble_bg = QColor("#2d2e42") if is_dark else QColor("#ffffff")
+            bubble_bg.setAlpha(220)
+            painter.setBrush(bubble_bg)
+            painter.setPen(QPen(QColor("#6272e8"), 1))
+            painter.drawRoundedRect(QRectF(bx, by, bw, bh), 6, 6)
+            painter.setPen(text_col)
+            painter.drawText(QRectF(bx, by, bw, bh),
+                             Qt.AlignmentFlag.AlignCenter, bubble_text)
+
+        painter.end()
 
 
 class WatchlistTab(QWidget):
@@ -59,7 +234,8 @@ class WatchlistTab(QWidget):
     def __init__(self, watchlist: list[dict]):
         super().__init__()
         self.watchlist = watchlist
-        self._has_lots: dict[int, bool] = {}  # row → has active lots
+        self._has_lots: dict[int, bool] = {}
+        self._history:  dict[int, list] = {}  # row → [(ts, price), ...]
 
         lay = QVBoxLayout(self)
         lay.setSpacing(8)
@@ -82,6 +258,7 @@ class WatchlistTab(QWidget):
         self.tbl.setIconSize(QSize(36, 36))
         self.tbl.verticalHeader().setDefaultSectionSize(46)
         self.tbl.verticalHeader().setVisible(False)
+        self.tbl.doubleClicked.connect(self._on_double_click)
         lay.addWidget(self.tbl)
 
         filter_row = QHBoxLayout()
@@ -123,6 +300,7 @@ class WatchlistTab(QWidget):
 
     def refresh(self):
         self._has_lots.clear()
+        self._history.clear()
         self.tbl.setRowCount(len(self.watchlist))
         for row, item in enumerate(self.watchlist):
             self._fill_row(row, item)
@@ -136,32 +314,36 @@ class WatchlistTab(QWidget):
     def set_status(self, text: str):
         self.lbl_status.setText(text)
 
-    def update_history(self, item_id: str, upgrade: int, prices: list):
+    def update_history(self, item_id: str, upgrade: int, pairs: list):
         for row, item in enumerate(self.watchlist):
             if item["id"] != item_id or item.get("upgrade", UPGRADE_ANY) != upgrade:
                 continue
+            self._history[row] = pairs
             cell = QTableWidgetItem()
-            cell.setData(Qt.ItemDataRole.UserRole, prices)
+            cell.setData(Qt.ItemDataRole.UserRole, pairs)
             self.tbl.setItem(row, 7, cell)
             break
 
-    def update_sales(self, item_id: str, upgrade: int,
-                     sold_day: int, sold_week: int):
+    def update_sales(self, item_id: str, upgrade: int, sold_day: int, sold_week: int):
         for row, item in enumerate(self.watchlist):
             if item["id"] != item_id or item.get("upgrade", UPGRADE_ANY) != upgrade:
                 continue
             for col, val in ((5, sold_day), (6, sold_week)):
                 cell = QTableWidgetItem(str(val) if val > 0 else "—")
                 cell.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                if val == 0:
+                    cell.setBackground(QColor(_RED))
+                    cell.setForeground(QColor(_RED_FG))
+                elif val > 0:
+                    cell.setBackground(QColor(_GREEN))
+                    cell.setForeground(QColor(_GREEN_FG))
                 self.tbl.setItem(row, col, cell)
             break
 
     def update_prices(self, item_id: str, upgrade: int,
                       cheapest: int, market: int, threshold: float):
         for row, item in enumerate(self.watchlist):
-            if item["id"] != item_id:
-                continue
-            if item.get("upgrade", UPGRADE_ANY) != upgrade:
+            if item["id"] != item_id or item.get("upgrade", UPGRADE_ANY) != upgrade:
                 continue
             self._has_lots[row] = cheapest > 0
             self._set_price_cells(row, cheapest, market, threshold)
@@ -171,25 +353,28 @@ class WatchlistTab(QWidget):
     def _apply_filter(self, *_):
         hide = self.chk_filter.isChecked()
         for row in range(self.tbl.rowCount()):
-            if hide and self._has_lots.get(row) is False:
-                self.tbl.setRowHidden(row, True)
-            else:
-                self.tbl.setRowHidden(row, False)
+            self.tbl.setRowHidden(row, hide and self._has_lots.get(row) is False)
 
-    def add_deal(self, name: str, color: str, level: int,
-                 buyout: int, market: int):
+    def _on_double_click(self, index):
+        row = index.row()
+        pairs = self._history.get(row)
+        if not pairs or len(pairs) < 2:
+            return
+        item = self.watchlist[row]
+        dlg = PriceChartDialog(item["name"], item.get("upgrade", UPGRADE_ANY), pairs, self)
+        dlg.exec()
+
+    def add_deal(self, name: str, color: str, level: int, buyout: int, market: int):
         discount = (1.0 - buyout / market) * 100
         ts       = datetime.now().strftime("%H:%M:%S")
         quality  = QUALITY_MAP.get(color, color)
-        line = (
+        self.txt_log.append(
             f"[{ts}] {name} [{quality}] +{level} — "
             f"выкуп {buyout:,} / рынок {market:,} / скидка {discount:.0f}%"
         )
-        self.txt_log.append(line)
 
     def add_log(self, text: str):
-        ts = datetime.now().strftime("%H:%M:%S")
-        self.txt_log.append(f"[{ts}] {text}")
+        self.txt_log.append(f"[{datetime.now().strftime('%H:%M:%S')}] {text}")
 
     def _fill_row(self, row: int, item: dict):
         ck      = item["color"]
@@ -218,22 +403,18 @@ class WatchlistTab(QWidget):
         for col in range(3, 9):
             self.tbl.setItem(row, col, QTableWidgetItem("—"))
 
-    def _set_price_cells(self, row: int, cheapest: int,
-                          market: int, threshold: float):
+    def _set_price_cells(self, row: int, cheapest: int, market: int, threshold: float):
         if cheapest == 0:
             self.tbl.setItem(row, 3, QTableWidgetItem("нет лотов"))
             self.tbl.setItem(row, 4, QTableWidgetItem("—"))
-            self.tbl.setItem(row, 5, QTableWidgetItem("—"))
             return
 
-        self.tbl.setItem(row, 3, QTableWidgetItem(
-            f"{market:,}" if market > 0 else "—"
-        ))
+        self.tbl.setItem(row, 3, QTableWidgetItem(f"{market:,}" if market > 0 else "—"))
         self.tbl.setItem(row, 4, QTableWidgetItem(f"{cheapest:,}"))
 
         if market > 0:
             discount = cheapest / market
-            cell     = QTableWidgetItem(f"{discount * 100:.0f}%")
+            cell = QTableWidgetItem(f"{discount * 100:.0f}%")
             if discount <= threshold:
                 cell.setForeground(QColor("#FF4444"))
                 cell.setFont(bold_font())

@@ -170,7 +170,12 @@ class AuctionWorker(QThread):
         sold_week = sum(p.get("amount", 1) for p in history
                         if _matches(p) and _ts(p) >= week_ago)
         self.sales_updated.emit(item_id, want_upgrade, sold_day, sold_week)
-        self.history_updated.emit(item_id, want_upgrade, prices[:50])
+
+        pairs = sorted(
+            [(_ts(p), p["price"]) for p in history if _matches(p) and p["price"] > 0],
+            key=lambda x: x[0],
+        )
+        self.history_updated.emit(item_id, want_upgrade, pairs[-100:])
 
         if len(prices) < 3:
             self.prices_updated.emit(item_id, want_upgrade, buyout, 0)
