@@ -645,20 +645,6 @@ table.data td.num{text-align:right;font-family:"SF Mono","Segoe UI Mono",Menlo,m
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 4h10M6 4V2.5h4V4M5 4l.7 9h4.6L11 4"/></svg>
         </button>
         <div class="sep"></div>
-        <div class="sort-drop-wrap">
-          <button class="btn btn-ghost" id="btn-sort" onclick="toggleSortDrop()" style="font-size:12px;padding:0 10px">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 4h10M5 8h6M7 12h2"/></svg>
-            Сортировка
-          </button>
-          <div id="sort-drop" class="sort-drop" style="display:none">
-            <div class="sort-drop-item" onclick="setSortMode('name')">По названию <span id="si-name"></span></div>
-            <div class="sort-drop-item" onclick="setSortMode('market')">По рынку <span id="si-market"></span></div>
-            <div class="sort-drop-item" onclick="setSortMode('cheapest')">По цене <span id="si-cheapest"></span></div>
-            <div class="sort-drop-item" onclick="setSortMode('discount')">По скидке <span id="si-discount"></span></div>
-            <div class="sort-drop-item" onclick="setSortMode('day')">По продажам/день <span id="si-day"></span></div>
-            <div class="sort-drop-item" onclick="setSortMode('')">Порядок списка <span id="si-"></span></div>
-          </div>
-        </div>
         <button class="btn btn-ghost" id="btn-hide-nolots" onclick="toggleHideNoLots()" style="font-size:12px;padding:0 10px" title="Скрыть строки без лотов">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 8s2.4-4.5 6-4.5S14 8 14 8"/><path d="M2 14l12-12"/></svg>
           Без лотов
@@ -674,15 +660,15 @@ table.data td.num{text-align:right;font-family:"SF Mono","Segoe UI Mono",Menlo,m
         <table class="data" id="watch-table">
           <thead>
             <tr>
-              <th class="sortable" style="width:25%" onclick="setSortMode('name')">Название</th>
+              <th class="sortable" style="width:25%">Название</th>
               <th style="width:90px">Ранг</th>
               <th style="width:68px">Заточка</th>
-              <th class="num sortable" onclick="setSortMode('market')">Маркет</th>
-              <th class="num sortable" onclick="setSortMode('cheapest')">Низ рынка</th>
-              <th class="num sortable" onclick="setSortMode('day')">За день</th>
+              <th class="num sortable">Маркет</th>
+              <th class="num sortable">Низ рынка</th>
+              <th class="num sortable">За день</th>
               <th class="num">За неделю</th>
               <th style="width:96px">7 дней</th>
-              <th class="num sortable" onclick="setSortMode('discount')">Скидка</th>
+              <th class="num sortable">Скидка</th>
               <th style="width:32px"></th>
             </tr>
           </thead>
