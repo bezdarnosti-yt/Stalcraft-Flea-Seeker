@@ -1,4 +1,8 @@
+import json
+from pathlib import Path
+
 import requests
+from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import (
     QComboBox, QDoubleSpinBox, QLabel, QLineEdit,
     QMessageBox, QPushButton, QSpinBox, QVBoxLayout, QWidget,
@@ -57,6 +61,18 @@ class SettingsTab(QWidget):
             "Алерт когда цена выкупа < X × медианная цена (0.7 = 70%)"
         )
 
+        self._save_timer = QTimer(self)
+        self._save_timer.setSingleShot(True)
+        self._save_timer.setInterval(600)
+        self._save_timer.timeout.connect(self._save)
+
+        if not _BUILTIN:
+            self.txt_id.textChanged.connect(self._save_timer.start)
+            self.txt_secret.textChanged.connect(self._save_timer.start)
+        self.cmb_region.currentTextChanged.connect(self._save_timer.start)
+        self.spn_interval.valueChanged.connect(self._save_timer.start)
+        self.spn_threshold.valueChanged.connect(self._save_timer.start)
+
         lay.addWidget(hline())
         lay.addWidget(QLabel("Регион:"))
         lay.addWidget(self.cmb_region)
@@ -70,12 +86,9 @@ class SettingsTab(QWidget):
 
         btn_check = QPushButton("Проверить API")
         btn_check.clicked.connect(self._check_api)
-        btn_save = QPushButton("Сохранить настройки")
-        btn_save.clicked.connect(self._save)
         btn_update = QPushButton("Проверить обновления")
         btn_update.clicked.connect(self._check_updates)
         lay.addWidget(btn_check)
-        lay.addWidget(btn_save)
         lay.addWidget(hline())
         lay.addWidget(btn_update)
         lay.addStretch()
@@ -103,11 +116,8 @@ class SettingsTab(QWidget):
 
     def _save(self):
         self._config.update(self.get_config())
-        import json
-        from pathlib import Path
         with open(Path("env.json"), "w", encoding="utf-8") as f:
-            json.dump(self._config, f, indent=4)
-        QMessageBox.information(self, "Настройки", "Сохранено!")
+            json.dump(self._config, f, ensure_ascii=False, indent=4)
 
     def _check_updates(self):
         import webbrowser
