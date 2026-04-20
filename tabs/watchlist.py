@@ -3,7 +3,7 @@ from datetime import datetime
 from PyQt6.QtCore import QPointF, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter, QPen
 from PyQt6.QtWidgets import (
-    QHBoxLayout, QHeaderView, QLabel, QMessageBox,
+    QCheckBox, QHBoxLayout, QHeaderView, QLabel, QMessageBox,
     QPushButton, QStyle, QStyledItemDelegate, QTextEdit,
     QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
@@ -59,6 +59,7 @@ class WatchlistTab(QWidget):
     def __init__(self, watchlist: list[dict]):
         super().__init__()
         self.watchlist = watchlist
+        self._has_lots: dict[int, bool] = {}  # row → has active lots
 
         lay = QVBoxLayout(self)
         lay.setSpacing(8)
@@ -82,6 +83,13 @@ class WatchlistTab(QWidget):
         self.tbl.verticalHeader().setDefaultSectionSize(46)
         self.tbl.verticalHeader().setVisible(False)
         lay.addWidget(self.tbl)
+
+        filter_row = QHBoxLayout()
+        self.chk_filter = QCheckBox("Скрывать без лотов")
+        self.chk_filter.toggled.connect(self._apply_filter)
+        filter_row.addWidget(self.chk_filter)
+        filter_row.addStretch()
+        lay.addLayout(filter_row)
 
         btns = QHBoxLayout()
         btns.setSpacing(6)
@@ -114,9 +122,11 @@ class WatchlistTab(QWidget):
         self.refresh()
 
     def refresh(self):
+        self._has_lots.clear()
         self.tbl.setRowCount(len(self.watchlist))
         for row, item in enumerate(self.watchlist):
             self._fill_row(row, item)
+        self._apply_filter()
 
     def set_monitoring(self, active: bool):
         self.btn_start.setEnabled(not active)
@@ -153,8 +163,18 @@ class WatchlistTab(QWidget):
                 continue
             if item.get("upgrade", UPGRADE_ANY) != upgrade:
                 continue
+            self._has_lots[row] = cheapest > 0
             self._set_price_cells(row, cheapest, market, threshold)
+            self._apply_filter()
             break
+
+    def _apply_filter(self, *_):
+        hide = self.chk_filter.isChecked()
+        for row in range(self.tbl.rowCount()):
+            if hide and self._has_lots.get(row) is False:
+                self.tbl.setRowHidden(row, True)
+            else:
+                self.tbl.setRowHidden(row, False)
 
     def add_deal(self, name: str, color: str, level: int,
                  buyout: int, market: int):
