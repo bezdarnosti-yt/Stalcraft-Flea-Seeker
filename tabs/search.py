@@ -111,11 +111,13 @@ class SearchTab(QWidget):
 
     def _populate_history_combo(self):
         self.cmb_search.blockSignals(True)
+        self.cmb_search.lineEdit().blockSignals(True)
         current = self.cmb_search.lineEdit().text()
         self.cmb_search.clear()
         for h in self._history:
             self.cmb_search.addItem(h)
         self.cmb_search.lineEdit().setText(current)
+        self.cmb_search.lineEdit().blockSignals(False)
         self.cmb_search.blockSignals(False)
 
     def _push_history(self, query: str):

@@ -166,6 +166,19 @@ class _ChartCanvas(QWidget):
         painter.setPen(QPen(grid_col, 1))
         painter.drawRect(PAD_L, PAD_T, cw, ch)
 
+        import statistics
+        median_v = statistics.median(prices)
+        median_y = py(median_v)
+        median_col = QColor("#e8a020")
+        painter.setPen(QPen(median_col, 1, Qt.PenStyle.DashLine))
+        painter.drawLine(QPointF(PAD_L, median_y), QPointF(W - PAD_R, median_y))
+        painter.setPen(median_col)
+        painter.drawText(
+            QRectF(PAD_L + 4, median_y - 14, 120, 13),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            f"медиана {int(median_v):,}",
+        )
+
         pts = [QPointF(px(i), py(p)) for i, p in enumerate(prices)]
         painter.setPen(QPen(line_col, 2))
         for i in range(len(pts) - 1):
@@ -273,16 +286,32 @@ class WatchlistTab(QWidget):
         self.btn_stop.setObjectName("btn_stop")
         self.btn_stop.setEnabled(False)
         self.btn_stop.clicked.connect(self.stop_requested)
-        btn_remove = QPushButton("Удалить выбранный")
-        btn_remove.clicked.connect(self._on_remove)
+        self.btn_up = QPushButton("↑")
+        self.btn_up.setFixedWidth(34)
+        self.btn_up.setToolTip("Переместить вверх")
+        self.btn_up.clicked.connect(self._move_up)
+        self.btn_down = QPushButton("↓")
+        self.btn_down.setFixedWidth(34)
+        self.btn_down.setToolTip("Переместить вниз")
+        self.btn_down.clicked.connect(self._move_down)
+        self.btn_remove = QPushButton("Удалить выбранный")
+        self.btn_remove.clicked.connect(self._on_remove)
         btns.addWidget(self.btn_start)
         btns.addWidget(self.btn_stop)
         btns.addStretch()
-        btns.addWidget(btn_remove)
+        btns.addWidget(self.btn_up)
+        btns.addWidget(self.btn_down)
+        btns.addWidget(self.btn_remove)
         lay.addLayout(btns)
 
-        self.lbl_status = QLabel("Не запущен")
-        lay.addWidget(self.lbl_status)
+        status_row = QHBoxLayout()
+        self.lbl_status  = QLabel("Не запущен")
+        self.lbl_updated = QLabel("")
+        self.lbl_updated.setStyleSheet("color: grey; font-size: 11px;")
+        status_row.addWidget(self.lbl_status)
+        status_row.addStretch()
+        status_row.addWidget(self.lbl_updated)
+        lay.addLayout(status_row)
         lay.addWidget(hline())
 
         deal_hdr = QHBoxLayout()
@@ -315,8 +344,13 @@ class WatchlistTab(QWidget):
     def set_monitoring(self, active: bool):
         self.btn_start.setEnabled(not active)
         self.btn_stop.setEnabled(active)
+        self.btn_up.setEnabled(not active)
+        self.btn_down.setEnabled(not active)
+        self.btn_remove.setEnabled(not active)
         self.tbl.setDragEnabled(not active)
         self.lbl_status.setText("Мониторинг запущен..." if active else "Остановлен")
+        if not active:
+            self.lbl_updated.setText("")
 
     def set_status(self, text: str):
         self.lbl_status.setText(text)
@@ -355,6 +389,7 @@ class WatchlistTab(QWidget):
             self._has_lots[row] = cheapest > 0
             self._set_price_cells(row, cheapest, market, threshold)
             self._apply_filter()
+            self.lbl_updated.setText(f"обновлено {datetime.now().strftime('%H:%M:%S')}")
             break
 
     def add_deal(self, name: str, color: str, level: int, buyout: int, market: int):
@@ -463,6 +498,24 @@ class WatchlistTab(QWidget):
             self.tbl.setItem(row, 8, cell)
         else:
             self.tbl.setItem(row, 8, QTableWidgetItem("мало данных"))
+
+    def _move_up(self):
+        row = self.tbl.currentRow()
+        if row <= 0:
+            return
+        self.watchlist.insert(row - 1, self.watchlist.pop(row))
+        self.refresh()
+        self.tbl.selectRow(row - 1)
+        self.reorder_requested.emit()
+
+    def _move_down(self):
+        row = self.tbl.currentRow()
+        if row < 0 or row >= len(self.watchlist) - 1:
+            return
+        self.watchlist.insert(row + 1, self.watchlist.pop(row))
+        self.refresh()
+        self.tbl.selectRow(row + 1)
+        self.reorder_requested.emit()
 
     def _on_remove(self):
         row = self.tbl.currentRow()

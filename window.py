@@ -25,6 +25,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle(f"Stalcraft Flea Seeker v{__version__}")
         self.setMinimumSize(860, 560)
+        self._deal_count = 0
 
         self._env_path       = Path("env.json")
         self._watchlist_path = Path("watchlist.json")
@@ -216,6 +217,12 @@ class MainWindow(QMainWindow):
 
     def _on_deal_found(self, name: str, color: str,
                         level: int, buyout: int, market: int):
+        self._deal_count += 1
+        self.setWindowTitle(
+            f"Stalcraft Flea Seeker v{__version__} — {self._deal_count} "
+            + ("сделка" if self._deal_count == 1 else
+               "сделки" if 2 <= self._deal_count <= 4 else "сделок")
+        )
         self.tab_watchlist.add_deal(name, color, level, buyout, market)
         QApplication.beep()
         self.activateWindow()
